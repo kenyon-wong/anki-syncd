@@ -1,0 +1,34 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Get Version
+      id: get_version
+      run: |
+        version=$(awk '/cargo install/{print $7}' Dockerfile)
+        echo "VERSION=${version}" >> $GITHUB_ENV
+
+    - name: Build the Docker image
+      run: docker buildx build . --file Dockerfile --tag anki/syncd:v${{ env.VERSION }}
+
+    - name: Save Docker image
+      run: docker save -o anki_syncd_${{ env.VERSION }}.tar anki/syncd:v${{ env.VERSION }}
+
+    - name: Upload Docker image
+      uses: actions/upload-artifact@v4
+      with:
+        name: docker-image
+        path: anki_syncd_${{ env.VERSION }}.tar
+
