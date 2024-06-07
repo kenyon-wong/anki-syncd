@@ -4,7 +4,7 @@ FROM rust:1.75-alpine AS builder
 RUN set -aeux && apk add --no-cache binutils git musl-dev protobuf-dev
 
 RUN set -aeux \
-    && cargo install --git https://github.com/ankitects/anki.git --tag 24.04 anki-sync-server \
+    && cargo install --git https://github.com/ankitects/anki.git --tag 24.06.2 anki-sync-server \
     && rm -rf /tmp/cargo-install*
 
 # RUN set -aeux \
@@ -27,7 +27,7 @@ ENV \
 WORKDIR /opt/anki.d
 
 # Set system environments
-RUN set -aeux && sed -i "s/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g" /etc/apk/repositories
+# RUN set -aeux && sed -i "s/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g" /etc/apk/repositories
 RUN set -aeux && apk add --no-cache ca-certificates tzdata
 
 # Set the Timezone

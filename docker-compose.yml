@@ -2,7 +2,7 @@ version: '3.12'
 services:
   anki:  # 服务名称
     container_name: anki  # 容器名称
-    image: anki/syncd:v24.04
+    image: anki/syncd:v24.04.1
     restart: always
 
     env_file:
