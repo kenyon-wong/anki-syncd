@@ -7,28 +7,41 @@ on:
     branches: [ "master" ]
 
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Get Version
-      id: get_version
-      run: |
-        version=$(awk '/cargo install/{print $7}' Dockerfile)
-        echo "VERSION=${version}" >> $GITHUB_ENV
+      # Checkout the repository
+      - uses: actions/checkout@v4
 
-    - name: Build the Docker image
-      run: docker buildx build . --file Dockerfile --tag anki/syncd:v${{ env.VERSION }}
+      # Extract the version from the Dockerfile
+      - name: Get Version
+        id: get_version
+        run: |
+          version=$(awk '/cargo install/{print $7}' Dockerfile)
+          echo "VERSION=${version}" >> $GITHUB_ENV        
 
-    - name: Save Docker image
-      run: docker save -o anki_syncd_${{ env.VERSION }}.tar anki/syncd:v${{ env.VERSION }}
+      # Build the Docker image
+      - name: Build the Docker image
+        run: docker buildx build . --file Dockerfile --tag anki_syncd:v${{ env.VERSION }}
 
-    - name: Upload Docker image
-      uses: actions/upload-artifact@v4
-      with:
-        name: docker-image
-        path: anki_syncd_${{ env.VERSION }}.tar
+      # Save the Docker image to a tar file
+      - name: Save Docker image
+        run: docker save -o anki_syncd_${{ env.VERSION }}.tar anki_syncd:v${{ env.VERSION }}
 
+      # Push the Docker image to the registry
+      - name: Push Docker image
+        env:
+          DOCKER_IMAGE: anki_syncd:v${{ env.VERSION }}
+          GITEA_REPO: ${{ secrets.GITEA_SERVICE }}/${{ secrets.GITEA_USER }}/anki_syncd:v${{ env.VERSION }}
+        run: |
+          docker login -u ${{ secrets.GITEA_USER }} --password ${{ secrets.GITEA_TOKEN }} ${{ secrets.GITEA_SERVICE }}
+          docker tag $DOCKER_IMAGE $GITEA_REPO
+          docker push $GITEA_REPO
+
+      # Upload the Docker image tar file as an artifact
+      - name: Upload Docker image
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: anki_syncd_${{ env.VERSION }}.tar
