@@ -1,6 +1,10 @@
 # README
 
+[![Build status](https://github.com/kenyon-wong/anki-sync-server-docker/workflows/Docker%20Image%20CI/badge.svg)](https://github.com/kenyon-wong/anki-sync-server-docker/actions)
+
 用自编译 Rust 二进制可执行程序作为服务组件来封装的Anki 自托管同步服务器项目
+
+
 
 ## 编译镜像
 
