@@ -1,5 +1,5 @@
 # Dockerfile
-FROM rust:1.75-alpine AS builder
+FROM rust:1.84-alpine AS builder
 
 RUN set -aeux && apk add --no-cache binutils git musl-dev protobuf-dev
 
