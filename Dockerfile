@@ -1,5 +1,5 @@
 # Dockerfile
-FROM rust:1.84 as builder
+FROM rust:latest as builder
 
 # Build arguments
 ARG ANKI_VERSION
