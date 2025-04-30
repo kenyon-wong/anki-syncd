@@ -14,16 +14,17 @@ jobs:
       # Checkout the repository
       - uses: actions/checkout@v4
 
-      # Extract the version from the Dockerfile
+      # Get version from version file
       - name: Get Version
         id: get_version
         run: |
-          version=$(awk '/cargo install/{print $7}' Dockerfile)
-          echo "VERSION=${version}" >> $GITHUB_ENV        
+          version=$(cat .github/version)
+          echo "VERSION=${version}" >> $GITHUB_ENV
+          echo "Version: ${version}"
 
       # Build the Docker image
       - name: Build the Docker image
-        run: docker buildx build . --file Dockerfile --tag anki_syncd:v${{ env.VERSION }}
+        run: docker buildx build . --file Dockerfile --build-arg ANKI_VERSION=${{ env.VERSION }} --tag anki_syncd:v${{ env.VERSION }}
 
       # Save the Docker image to a tar file
       - name: Save Docker image

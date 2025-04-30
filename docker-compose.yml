@@ -1,18 +1,29 @@
 version: '3.12'
 services:
-  anki:  # 服务名称
-    container_name: anki  # 容器名称
-    image: anki/syncd:v25.02.4 
+  anki:
+    container_name: anki
+    build:
+      context: .
+      args:
+        ANKI_VERSION: ${ANKI_VERSION:-$(cat .github/version)}
+    image: anki/syncd:v${ANKI_VERSION:-$(cat .github/version)}
     restart: always
 
+    # 环境变量配置
     env_file:
-      - ./envs/pub.env
-      - ./envs/users.env
+      - ./envs/pub.env  # 公共配置（时区、语言、同步服务器设置等）
+      - ./envs/users.env  # 用户认证配置
 
+    # 用户和工作目录设置
+    user: anki
+    working_dir: /opt/anki.d/sync.d
+
+    # 网络设置
     network_mode: bridge
     ports:
       - "8080:8080/tcp"
 
+    # 系统优化设置
     sysctls:
       - net.ipv4.tcp_ecn=1
       - net.ipv4.tcp_ecn_fallback=1
@@ -21,7 +32,6 @@ services:
       - net.ipv4.tcp_sack=1
       - net.ipv4.conf.all.rp_filter=1
       - net.ipv4.conf.default.rp_filter=1
-      # - net.ipv4.ip_forward=1
       - net.ipv4.tcp_keepalive_intvl=15
       - net.ipv4.tcp_keepalive_probes=5
       - net.ipv4.tcp_keepalive_time=75
@@ -32,6 +42,22 @@ services:
       - net.ipv4.tcp_timestamps=1
       - net.ipv4.tcp_window_scaling=1
 
+    # 存储卷设置
     volumes:
-      - "./data.d/:/opt/anki.d/"
+      - "./data.d/sync.d:${SYNC_BASE:-/opt/anki.d/sync.d}"
       - "/etc/localtime:/etc/localtime:ro"
+
+    # 健康检查
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8080"]
+    #   interval: 1m
+    #   timeout: 10s
+    #   retries: 3
+
+    # 日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"

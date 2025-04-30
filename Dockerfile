@@ -1,40 +1,37 @@
 # Dockerfile
-FROM rust:1.84-alpine AS builder
+FROM rust:1.84 as builder
 
-RUN set -aeux && apk add --no-cache binutils git musl-dev protobuf-dev
+# Build arguments
+ARG ANKI_VERSION
 
-RUN set -aeux \
-    && cargo install --git https://github.com/ankitects/anki.git --tag 25.02.4 anki-sync-server \
-    && rm -rf /tmp/cargo-install*
+# Install build dependencies and anki-sync-server
+RUN apt-get update && apt-get install -y protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/* \
+    && cargo install --git https://github.com/ankitects/anki.git --branch main --tag ${ANKI_VERSION} anki-sync-server \
+    && rm -rf /usr/local/cargo/registry
 
-# RUN set -aeux \
-RUN set -aeux \
-    && mkdir /rootfs \
-    && cp --parents $(which anki-sync-server) /rootfs/ \
-    && cp --parents $(ldd "$(which anki-sync-server)" | awk '{if ( match($1,"/") ) {print $1}}') /rootfs/ \
-    && strip $(find /rootfs/ -type f)
+FROM debian:stable-slim
 
-FROM alpine:latest
+# Add labels
+LABEL maintainer="Anki Sync Server Docker Maintainers"
+LABEL version="${ANKI_VERSION}"
+LABEL description="Anki Sync Server Docker Image"
+LABEL org.opencontainers.image.source="https://github.com/kenyon-wong/anki-sync-server-docker.git"
 
-# Init system envs
-ENV \
-    PATH="${PATH}:/usr/local/cargo/bin" \
-    LANG=C.UTF-8 \
-    TZ=Asia/Shanghai \
-    SYNC_BASE=/opt/anki.d/sync.d
+# Setup runtime environment
+ENV DEFAULT_SYNC_BASE=/opt/anki.d/sync.d
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    tzdata \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r anki \
+    && useradd -r -g anki -d ${DEFAULT_SYNC_BASE} -s /bin/false anki \
+    && mkdir -p ${DEFAULT_SYNC_BASE} \
+    && chown -R anki:anki ${DEFAULT_SYNC_BASE} \
+    && chmod 755 ${DEFAULT_SYNC_BASE}
 
-# Set work directory
-WORKDIR /opt/anki.d
-
-# Set system environments
-# RUN set -aeux && sed -i "s/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g" /etc/apk/repositories
-RUN set -aeux && apk add --no-cache ca-certificates tzdata
-
-# Set the Timezone
-RUN set -aeux \
-    && ln -sf "/usr/share/zoneinfo/${TZ}" /etc/localtime
-
-# Copy anki-sync-server
-COPY --from=builder /rootfs/ /
+# Copy anki-sync-server binary
+COPY --from=builder /usr/local/cargo/bin/anki-sync-server /usr/local/bin/anki-sync-server
 
 CMD ["anki-sync-server"]

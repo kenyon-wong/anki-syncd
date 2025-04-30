@@ -1,0 +1,29 @@
+# Git
+.git
+.gitignore
+.github
+
+# Docker
+.docker
+docker-compose.yml
+*.md
+
+# Data and environment files
+data.d/
+*.env
+!envs/*.env
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Cache
+__pycache__/
+*.py[cod]
+*$py.class
