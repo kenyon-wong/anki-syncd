@@ -11,7 +11,7 @@
 修改配置文件中的版本号之后，执行编译
 
 ```bash
-docker build -t anki/syncd:25.02 .
+docker build -t anki/syncd:25.02.4 .
 ```
 
 

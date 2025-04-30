@@ -4,7 +4,7 @@ FROM rust:1.84-alpine AS builder
 RUN set -aeux && apk add --no-cache binutils git musl-dev protobuf-dev
 
 RUN set -aeux \
-    && cargo install --git https://github.com/ankitects/anki.git --tag 25.02 anki-sync-server \
+    && cargo install --git https://github.com/ankitects/anki.git --tag 25.02.4 anki-sync-server \
     && rm -rf /tmp/cargo-install*
 
 # RUN set -aeux \
