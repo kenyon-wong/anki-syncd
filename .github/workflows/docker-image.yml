@@ -36,12 +36,13 @@ jobs:
       # Login to Docker registry
       - name: Login to Docker Registry
         run: |
-          echo "${{ secrets.GITEA_TOKEN }}" | docker login -u ${{ secrets.GITEA_USER }} --password-stdin ${{ secrets.GITEA_SERVICE }}
-
+          docker login -u ${{ secrets.GITEA_USER }} --password ${{ secrets.GITEA_TOKEN }} ${{ secrets.GITEA_SERVICE }}
+          
       # # Login to Docker registry
       # - name: Login to Docker Registry
       #   run: |
       #     docker login -u ${{ secrets.GITEA_USER }} --password ${{ secrets.GITEA_TOKEN }} ${{ secrets.GITEA_SERVICE }}
+      #     echo "${{ secrets.GITEA_TOKEN }}" | docker login -u ${{ secrets.GITEA_USER }} --password-stdin ${{ secrets.GITEA_SERVICE }}
 
       # Build and push the Docker image
       - name: Build and push Docker image
