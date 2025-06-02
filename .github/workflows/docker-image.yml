@@ -34,9 +34,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       # Login to Docker registry
-      - name: Login to Docker Registry
-        run: |
-          docker login -u ${{ secrets.GITEA_USER }} --password ${{ secrets.GITEA_TOKEN }} ${{ secrets.GITEA_SERVICE }}
+      # - name: Login to Docker Registry
+      #   run: |
+      #     docker login -u ${{ secrets.GITEA_USER }} --password ${{ secrets.GITEA_TOKEN }} ${{ secrets.GITEA_SERVICE }}
           
       # # Login to Docker registry
       # - name: Login to Docker Registry
