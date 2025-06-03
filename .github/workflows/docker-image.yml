@@ -14,11 +14,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Login to container
-        env:
-          REGISTRY_URL: https://git.httpx.online:443
-        run: |
-          echo ${{ secrets.GITEA_TOKEN }} | docker login -u ${{ secrets.GITEA_USER }} https://git.httpx.online:443 --password-stdin
+      - name: Log into registry ${{ env.GITEA_SERVICE }}
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ${{ env.GITEA_SERVICE  }}
+          username: ${{ github.GITEA_USER }}
+          password: ${{ secrets.GITEA_TOKEN }}
 
       - name: Get Version
         id: get_version
