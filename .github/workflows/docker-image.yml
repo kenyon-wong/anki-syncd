@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name Login to container
+      - name: Login to container
         env:
           REGISTRY_URL: https://${{ secrets.GITEA_SERVICE }}:443
         run: |
