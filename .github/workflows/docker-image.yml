@@ -12,10 +12,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the repository
       - uses: actions/checkout@v4
 
-      # Get version from version file
       - name: Get Version
         id: get_version
         run: |
@@ -26,46 +24,31 @@ jobs:
           version=$(cat .github/version)
           echo "VERSION=${version}" >> $GITHUB_ENV
           echo "Version: ${version}"
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
-      # Set up Docker Buildx
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      # Login to Docker registry
-      # - name: Login to Docker Registry
-      #   run: |
-      #     docker login -u ${{ secrets.GITEA_USER }} --password ${{ secrets.GITEA_TOKEN }} ${{ secrets.GITEA_SERVICE }}
-          
-      # # Login to Docker registry
-      # - name: Login to Docker Registry
-      #   run: |
-      #     docker login -u ${{ secrets.GITEA_USER }} --password ${{ secrets.GITEA_TOKEN }} ${{ secrets.GITEA_SERVICE }}
-      #     echo "${{ secrets.GITEA_TOKEN }}" | docker login -u ${{ secrets.GITEA_USER }} --password-stdin ${{ secrets.GITEA_SERVICE }}
-
-      # Build and push the Docker image
-      - name: Build and push Docker image
-        env:
-          GITEA_REPO: ${{ secrets.GITEA_SERVICE }}/${{ secrets.GITEA_USER }}/anki_syncd:v${{ env.VERSION }}
+      - name: Build the Docker image
         run: |
           docker buildx build \
-            --platform linux/amd64,linux/arm64 \
             . \
             --file Dockerfile \
             --build-arg ANKI_VERSION=${{ env.VERSION }} \
-            --tag $GITEA_REPO \
-            --push
+            --tag anki_syncd:v${{ env.VERSION }}
 
-      # Save the Docker image to a tar file (optional)
       - name: Save Docker image
         run: |
-          docker pull ${{ secrets.GITEA_SERVICE }}/${{ secrets.GITEA_USER }}/anki_syncd:v${{ env.VERSION }}
-          docker save -o anki_syncd_${{ env.VERSION }}.tar ${{ secrets.GITEA_SERVICE }}/${{ secrets.GITEA_USER }}/anki_syncd:v${{ env.VERSION }}
+          docker save \
+            -o anki_syncd_${{ env.VERSION }}.tar anki_syncd:v${{ env.VERSION }}
 
-      # Upload the Docker image tar file as an artifact
+      - name: Push Docker image
+        env:
+          DOCKER_IMAGE: anki_syncd:v${{ env.VERSION }}
+          GITEA_REPO: ${{ secrets.GITEA_SERVICE }}/${{ secrets.GITEA_USER }}/anki_syncd:v${{ env.VERSION }}
+        run: |
+          docker login -u ${{ secrets.GITEA_USER }} --password ${{ secrets.GITEA_TOKEN }} ${{ secrets.GITEA_SERVICE }}
+          docker tag $DOCKER_IMAGE $GITEA_REPO
+          docker push $GITEA_REPO
+
       - name: Upload Docker image
         uses: actions/upload-artifact@v4
         with:
-          name: docker-image
+          name: anki_syncd:v${{ env.VERSION }}
           path: anki_syncd_${{ env.VERSION }}.tar
