@@ -43,12 +43,12 @@ jobs:
           DOCKER_IMAGE: anki_syncd:v${{ env.VERSION }}
           GITEA_REPO: ${{ secrets.GITEA_SERVICE }}/${{ secrets.GITEA_USER }}/anki_syncd:v${{ env.VERSION }}
         run: |
-          docker login -u ${{ secrets.GITEA_USER }} --password ${{ secrets.GITEA_TOKEN }} ${{ secrets.GITEA_SERVICE }}
+          echo ${{ secrets.GITEA_TOKEN }} | docker login -u ${{ secrets.GITEA_USER }} --password-stdin ${{ secrets.GITEA_SERVICE }}
           docker tag $DOCKER_IMAGE $GITEA_REPO
           docker push $GITEA_REPO
 
       - name: Upload Docker image
         uses: actions/upload-artifact@v4
         with:
-          name: anki_syncd:v${{ env.VERSION }}
+          name: anki_syncd:v${{ env.VERSION }}.tar
           path: anki_syncd_${{ env.VERSION }}.tar
