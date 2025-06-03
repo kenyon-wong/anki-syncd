@@ -1,4 +1,4 @@
-name: Build Docker images
+name: Build the Docker images
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
         env:
           REGISTRY_URL: https://git.httpx.online:443
         run: |
-          echo ${{ secrets.GITEA_TOKEN }} | docker login -u ${{ secrets.GITEA_USER }} --password-stdin https://git.httpx.online:443
+          echo ${{ secrets.GITEA_TOKEN }} | docker login -u ${{ secrets.GITEA_USER }} https://git.httpx.online:443 --password-stdin
 
       - name: Get Version
         id: get_version
