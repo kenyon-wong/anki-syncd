@@ -43,7 +43,8 @@ jobs:
           DOCKER_IMAGE: anki_syncd:v${{ env.VERSION }}
           GITEA_REPO: ${{ secrets.GITEA_SERVICE }}/${{ secrets.GITEA_USER }}/anki_syncd:v${{ env.VERSION }}
         run: |
-          echo ${{ secrets.GITEA_TOKEN }} | docker login -u ${{ secrets.GITEA_USER }} --password-stdin ${{ secrets.GITEA_SERVICE }}
+          echo "Logging into ${{ secrets.GITEA_SERVICE }}..."
+          echo ${{ secrets.GITEA_TOKEN }} | docker login -u ${{ secrets.GITEA_USER }} ${{ secrets.GITEA_SERVICE }} --password-stdin
           docker tag $DOCKER_IMAGE $GITEA_REPO
           docker push $GITEA_REPO
 
