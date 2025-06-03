@@ -18,7 +18,7 @@ jobs:
         env:
           REGISTRY_URL: https://git.httpx.online:443
         run: |
-          echo ${{ secrets.GITEA_TOKEN }} | docker login -u ${{ secrets.GITEA_USER }} --password-stdin $REGISTRY_URL
+          echo ${{ secrets.GITEA_TOKEN }} | docker login -u ${{ secrets.GITEA_USER }} --password-stdin https://git.httpx.online:443
 
       - name: Get Version
         id: get_version
