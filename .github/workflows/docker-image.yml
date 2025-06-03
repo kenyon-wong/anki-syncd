@@ -16,7 +16,7 @@ jobs:
 
       - name: Login to container
         env:
-          REGISTRY_URL: https://${{ secrets.GITEA_SERVICE }}:443
+          REGISTRY_URL: https://git.httpx.online:443
         run: |
           echo ${{ secrets.GITEA_TOKEN }} | docker login -u ${{ secrets.GITEA_USER }} --password-stdin $REGISTRY_URL
 
