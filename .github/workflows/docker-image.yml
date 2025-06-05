@@ -36,14 +36,14 @@ jobs:
       - name: Save Docker image
         run: |
           docker save \
-            -o anki_syncd_${{ env.VERSION }}.tar \
+            -o anki_syncd_v${{ env.VERSION }}.tar \
             anki_syncd:v${{ env.VERSION }}
 
       - name: Upload Docker image
         uses: actions/upload-artifact@v4
         with:
-          name: anki_syncd:v${{ env.VERSION }}.tar
-          path: anki_syncd_${{ env.VERSION }}.tar
+          name: anki_syncd_v${{ env.VERSION }}.tar
+          path: anki_syncd_v${{ env.VERSION }}.tar
 
       - name: Log into registry ${{ env.GITEA_SERVICE }}
         uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
