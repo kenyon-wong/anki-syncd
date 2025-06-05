@@ -14,13 +14,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Log into registry ${{ env.GITEA_SERVICE }}
-        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
-        with:
-          registry: ${{ env.GITEA_SERVICE  }}
-          username: ${{ github.GITEA_USER }}
-          password: ${{ secrets.GITEA_TOKEN }}
-
       - name: Get Version
         id: get_version
         run: |
@@ -51,6 +44,13 @@ jobs:
         with:
           name: anki_syncd:v${{ env.VERSION }}.tar
           path: anki_syncd_${{ env.VERSION }}.tar
+
+      - name: Log into registry ${{ env.GITEA_SERVICE }}
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ${{ env.GITEA_SERVICE  }}
+          username: ${{ github.GITEA_USER }}
+          password: ${{ secrets.GITEA_TOKEN }}
 
       - name: Push Docker image
         env:
