@@ -45,11 +45,11 @@ jobs:
           name: anki_syncd_v${{ env.VERSION }}.tar
           path: anki_syncd_v${{ env.VERSION }}.tar
 
-      - name: Log into registry ${{ env.GITEA_SERVICE }}
-        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+      - name: Login to Docker Registry
+        uses: docker/login-action@v3
         with:
-          registry: ${{ env.GITEA_SERVICE  }}
-          username: ${{ github.GITEA_USER }}
+          registry: ${{ secrets.GITEA_SERVICE }}
+          username: ${{ secrets.GITEA_USER }}
           password: ${{ secrets.GITEA_TOKEN }}
 
       - name: Push Docker image
