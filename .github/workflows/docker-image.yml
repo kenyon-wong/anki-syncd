@@ -66,9 +66,8 @@ jobs:
           username: ${{ secrets.GITEA_USER }}
           password: ${{ secrets.GITEA_TOKEN }}
 
-      # PR 时仅构建验证（cacheonly，不推送）；非 PR 时按 digest 推送，避免并发 tag 冲突
-      - name: Build and push by digest
-        id: build
+      # PR 时仅构建验证（push=false，加载到本地 Docker）；非 PR 时推送到架构专用 tag
+      - name: Build and push
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -78,28 +77,13 @@ jobs:
           provenance: false
           cache-from: type=gha,scope=${{ matrix.artifact_key }}
           cache-to: type=gha,mode=max,scope=${{ matrix.artifact_key }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ env.VERSION }}-${{ matrix.artifact_key }}
           labels: |
             org.opencontainers.image.title=Anki Sync Server
             org.opencontainers.image.description=Anki Sync Server Docker Image
             org.opencontainers.image.version=${{ env.VERSION }}
             org.opencontainers.image.source=https://github.com/kenyon-wong/anki-syncd
-          outputs: ${{ github.event_name == 'pull_request' && 'type=cacheonly' || format('type=image,name={0}/{1},push-by-digest=true,name-only=true', env.REGISTRY, env.IMAGE_NAME) }}
-
-      - name: Export digest
-        if: github.event_name != 'pull_request'
-        run: |
-          mkdir -p /tmp/digests
-          digest="${{ steps.build.outputs.digest }}"
-          touch "/tmp/digests/${digest#sha256:}"
-
-      - name: Upload digest
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v7
-        with:
-          name: digests-${{ matrix.artifact_key }}
-          path: /tmp/digests/*
-          if-no-files-found: error
-          retention-days: 1
 
   merge:
     name: Merge manifest
@@ -118,13 +102,6 @@ jobs:
           version=$(cat .github/version)
           echo "VERSION=${version}" >> $GITHUB_ENV
 
-      - name: Download digests
-        uses: actions/download-artifact@v8
-        with:
-          path: /tmp/digests
-          pattern: digests-*
-          merge-multiple: true
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -136,11 +113,11 @@ jobs:
           password: ${{ secrets.GITEA_TOKEN }}
 
       - name: Create manifest list and push
-        working-directory: /tmp/digests
         run: |
           docker buildx imagetools create \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ env.VERSION }} \
-            $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ env.VERSION }}-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ env.VERSION }}-arm64
 
       - name: Inspect image
         run: |
