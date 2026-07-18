@@ -1,0 +1,70 @@
+name: Check upstream Anki version
+
+on:
+  schedule:
+    # 每周一 03:00 UTC 自动检查
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: check-upstream
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Get current version
+        id: current
+        run: echo "version=$(cat .github/version)" >> $GITHUB_OUTPUT
+
+      - name: Get latest Anki release
+        id: latest
+        run: |
+          latest=$(curl -fsSL "https://api.github.com/repos/ankitects/anki/releases/latest" \
+            | jq -r '.tag_name')
+          if [ -z "$latest" ] || [ "$latest" = "null" ]; then
+            echo "Failed to fetch latest release"
+            exit 1
+          fi
+
+          # 边界校验：只允许纯数字标签（如 26.05、25.11.1），过滤 beta/rc 等
+          if ! echo "$latest" | grep -qE '^[0-9.]+$'; then
+            echo "⚠️ Tag '${latest}' 非纯数字格式，跳过本次更新"
+            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "version=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "valid=true" >> $GITHUB_OUTPUT
+          echo "version=${latest}" >> $GITHUB_OUTPUT
+          echo "Current: ${{ steps.current.outputs.version }} | Latest: ${latest}"
+
+      - name: Update version files
+        if: steps.latest.outputs.valid == 'true' && steps.current.outputs.version != steps.latest.outputs.version
+        run: |
+          echo "${{ steps.latest.outputs.version }}" > .github/version
+          sed -i "s/^ANKI_VERSION=.*/ANKI_VERSION=${{ steps.latest.outputs.version }}/" .env
+
+      - name: Create Pull Request
+        if: steps.latest.outputs.valid == 'true' && steps.current.outputs.version != steps.latest.outputs.version
+        uses: peter-evans/create-pull-request@v8
+        with:
+          commit-message: "chore: bump Anki version to ${{ steps.latest.outputs.version }}"
+          title: "chore: bump Anki version to ${{ steps.latest.outputs.version }}"
+          body: |
+            自动检测到 Anki 上游有新版本发布。
+
+            - 当前版本: ${{ steps.current.outputs.version }}
+            - 最新版本: ${{ steps.latest.outputs.version }}
+
+            合并后将自动触发多架构镜像构建。
+          branch: chore/bump-anki-version
+          delete-branch: true

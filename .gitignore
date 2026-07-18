@@ -1,0 +1,18 @@
+# 用户认证配置（含真实密码，不入库）
+envs/user.env
+
+# 同步数据持久化目录
+data.d/
+
+# 日志
+*.log
+
+# IDE / 编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 系统
+.DS_Store
