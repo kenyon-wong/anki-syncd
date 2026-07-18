@@ -116,6 +116,7 @@ jobs:
         run: |
           docker buildx imagetools create \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ env.VERSION }} \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ env.VERSION }}-amd64 \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ env.VERSION }}-arm64
 
@@ -123,3 +124,19 @@ jobs:
         run: |
           docker buildx imagetools inspect \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ env.VERSION }}
+
+      # 清理架构专用中间 tag（非关键步骤，失败不影响构建结果）
+      - name: Clean up arch-specific tags
+        continue-on-error: true
+        env:
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+          GITEA_USER: ${{ secrets.GITEA_USER }}
+        run: |
+          package_name="${IMAGE_NAME#*/}"
+          for arch in amd64 arm64; do
+            echo "Deleting ${package_name}:v${VERSION}-${arch}..."
+            curl -fsSL -X DELETE \
+              -H "Authorization: token ${GITEA_TOKEN}" \
+              "https://${REGISTRY}/api/v1/packages/${GITEA_USER}/container/${package_name}/v${VERSION}-${arch}" \
+              && echo "  deleted" || echo "  skipped (not found or unsupported)"
+          done
