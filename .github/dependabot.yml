@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # GitHub Actions 版本追踪（自动升级 action 到最新，避免 Node.js 弃用等问题）
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci(deps)"
+
+  # Dockerfile 基础镜像版本追踪（rust、debian）
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "ci(deps)"

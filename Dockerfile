@@ -1,29 +1,38 @@
-# Dockerfile
-FROM rust:latest as builder
+# syntax=docker/dockerfile:1
 
-# Build arguments
+# ---- Builder stage ----
+FROM rust:1.97-bookworm AS builder
+
 ARG ANKI_VERSION
 
-# Install build dependencies and anki-sync-server
-RUN apt-get update && apt-get install -y protobuf-compiler \
-    && rm -rf /var/lib/apt/lists/* \
-    && cargo install --git https://github.com/ankitects/anki.git --branch main --tag ${ANKI_VERSION} anki-sync-server \
-    && rm -rf /usr/local/cargo/registry
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends protobuf-compiler \
+    && rm -rf /var/lib/apt/lists/*
 
-FROM debian:stable-slim
+# Build anki-sync-server from the official source
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    cargo install --git https://github.com/ankitects/anki.git \
+    --tag ${ANKI_VERSION} anki-sync-server
 
-# Add labels
-LABEL maintainer="Anki Sync Server Docker Maintainers"
-LABEL version="${ANKI_VERSION}"
-LABEL description="Anki Sync Server Docker Image"
-LABEL org.opencontainers.image.source="https://github.com/kenyon-wong/anki-sync-server-docker.git"
+# ---- Runtime stage ----
+FROM debian:bookworm-slim
 
-# Setup runtime environment
+# Re-declare ANKI_VERSION (ARG scope does not carry across stages)
+ARG ANKI_VERSION
+
+LABEL org.opencontainers.image.title="Anki Sync Server" \
+      org.opencontainers.image.description="Anki Sync Server Docker Image" \
+      org.opencontainers.image.version="${ANKI_VERSION}" \
+      org.opencontainers.image.source="https://github.com/kenyon-wong/anki-syncd.git" \
+      org.opencontainers.image.authors="Anki Sync Server Docker Maintainers" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later"
+
 ENV DEFAULT_SYNC_BASE=/opt/anki.d/sync.d
-RUN apt-get update && apt-get install -y \
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     tzdata \
-    curl \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd -r anki \
     && useradd -r -g anki -d ${DEFAULT_SYNC_BASE} -s /bin/false anki \
@@ -31,7 +40,9 @@ RUN apt-get update && apt-get install -y \
     && chown -R anki:anki ${DEFAULT_SYNC_BASE} \
     && chmod 755 ${DEFAULT_SYNC_BASE}
 
-# Copy anki-sync-server binary
 COPY --from=builder /usr/local/cargo/bin/anki-sync-server /usr/local/bin/anki-sync-server
+
+USER anki
+WORKDIR ${DEFAULT_SYNC_BASE}
 
 CMD ["anki-sync-server"]

@@ -2,20 +2,50 @@ name: Build the Docker images
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
+    paths:
+      - Dockerfile
+      - .github/version
+      - .github/workflows/**
+      - envs/**
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
+    paths:
+      - Dockerfile
+      - .github/version
+      - .github/workflows/**
+      - envs/**
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    name: Build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            artifact_key: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            artifact_key: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      REGISTRY: ${{ secrets.GITEA_SERVICE }}
+      IMAGE_NAME: ${{ secrets.GITEA_USER }}/anki_syncd
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Get Version
-        id: get_version
         run: |
           if [ ! -f .github/version ]; then
             echo "Error: Version file not found!"
@@ -25,38 +55,94 @@ jobs:
           echo "VERSION=${version}" >> $GITHUB_ENV
           echo "Anki Releases Version: ${version}"
 
-      - name: Build the Docker image
-        run: |
-          docker buildx build \
-            . \
-            --file Dockerfile \
-            --build-arg ANKI_VERSION=${{ env.VERSION }} \
-            --tag anki_syncd:v${{ env.VERSION }}
-
-      - name: Save Docker image
-        run: |
-          docker save \
-            -o anki_syncd_v${{ env.VERSION }}.tar \
-            anki_syncd:v${{ env.VERSION }}
-
-      - name: Upload Docker image
-        uses: actions/upload-artifact@v4
-        with:
-          name: anki_syncd_v${{ env.VERSION }}.tar
-          path: anki_syncd_v${{ env.VERSION }}.tar
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to Docker Registry
-        uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
         with:
-          registry: ${{ secrets.GITEA_SERVICE }}
+          registry: ${{ env.REGISTRY }}
           username: ${{ secrets.GITEA_USER }}
           password: ${{ secrets.GITEA_TOKEN }}
 
-      - name: Push Docker image
-        env:
-          DOCKER_IMAGE: anki_syncd:v${{ env.VERSION }}
-          GITEA_REPO: ${{ secrets.GITEA_SERVICE }}/${{ secrets.GITEA_USER }}/anki_syncd:v${{ env.VERSION }}
+      # PR 时仅构建验证（cacheonly，不推送）；非 PR 时按 digest 推送，避免并发 tag 冲突
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          build-args: ANKI_VERSION=${{ env.VERSION }}
+          provenance: false
+          cache-from: type=gha,scope=${{ matrix.artifact_key }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.artifact_key }}
+          labels: |
+            org.opencontainers.image.title=Anki Sync Server
+            org.opencontainers.image.description=Anki Sync Server Docker Image
+            org.opencontainers.image.version=${{ env.VERSION }}
+            org.opencontainers.image.source=https://github.com/kenyon-wong/anki-syncd
+          outputs: ${{ github.event_name == 'pull_request' && 'type=cacheonly' || format('type=image,name={0}/{1},push-by-digest=true,name-only=true', env.REGISTRY, env.IMAGE_NAME) }}
+
+      - name: Export digest
+        if: github.event_name != 'pull_request'
         run: |
-          docker tag $DOCKER_IMAGE $GITEA_REPO
-          docker push $GITEA_REPO
-          
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v5
+        with:
+          name: digests-${{ matrix.artifact_key }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Merge manifest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: build
+    if: github.event_name != 'pull_request'
+    env:
+      REGISTRY: ${{ secrets.GITEA_SERVICE }}
+      IMAGE_NAME: ${{ secrets.GITEA_USER }}/anki_syncd
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Get Version
+        run: |
+          version=$(cat .github/version)
+          echo "VERSION=${version}" >> $GITHUB_ENV
+
+      - name: Download digests
+        uses: actions/download-artifact@v7
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to Docker Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GITEA_USER }}
+          password: ${{ secrets.GITEA_TOKEN }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ env.VERSION }} \
+            $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ env.VERSION }}
