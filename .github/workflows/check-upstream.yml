@@ -2,8 +2,8 @@ name: Check upstream Anki version
 
 on:
   schedule:
-    # 每周一 03:00 UTC 自动检查
-    - cron: '0 3 * * 1'
+    # 每天 03:00 UTC 自动检查（Anki 每月发正式版+补丁，周检最长滞后 7 天）
+    - cron: '0 3 * * *'
   workflow_dispatch:
 
 permissions:
