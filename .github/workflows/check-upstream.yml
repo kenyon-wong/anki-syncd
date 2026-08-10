@@ -35,8 +35,8 @@ jobs:
             exit 1
           fi
 
-          # 边界校验：只允许纯数字标签（如 26.05、25.11.1），过滤 beta/rc 等
-          if ! echo "$latest" | grep -qE '^[0-9.]+$'; then
+          # 边界校验：只允许数字段+点分隔（如 26.05、25.11.1），过滤 beta/rc 及畸形格式
+          if ! echo "$latest" | grep -qE '^[0-9]+(\.[0-9]+)*$'; then
             echo "⚠️ Tag '${latest}' 非纯数字格式，跳过本次更新"
             echo "valid=false" >> $GITHUB_OUTPUT
             echo "version=" >> $GITHUB_OUTPUT
