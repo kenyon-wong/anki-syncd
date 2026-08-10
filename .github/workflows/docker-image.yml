@@ -8,6 +8,7 @@ on:
       - .github/version
       - .github/workflows/**
       - envs/**
+      - .env
   pull_request:
     branches: ["master"]
     paths:
@@ -15,6 +16,7 @@ on:
       - .github/version
       - .github/workflows/**
       - envs/**
+      - .env
   workflow_dispatch:
 
 permissions:
