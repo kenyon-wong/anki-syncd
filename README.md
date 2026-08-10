@@ -40,7 +40,7 @@
 
 项目根目录的 `.env` 文件提供 Docker Compose 变量插值：
 
-- `ANKI_VERSION`: Anki 版本号（与 `.github/version` 同步，控制镜像构建版本）
+- `ANKI_VERSION`: Anki 版本号（版本唯一源，自动检查和 CI 构建均从此读取，控制镜像构建版本）
 
 在 `envs/pub.env` 中可以配置以下运行时参数：
 
@@ -150,7 +150,7 @@ sync.example.com {
 
 ```bash
 # 获取当前版本号
-version=$(cat .github/version)
+version=$(awk -F= '/^ANKI_VERSION=/{print $2}' .env)
 
 # 单架构构建（当前平台）
 docker buildx build -t anki/syncd:v${version} --build-arg ANKI_VERSION=${version} .

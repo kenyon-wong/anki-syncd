@@ -23,7 +23,7 @@ jobs:
 
       - name: Get current version
         id: current
-        run: echo "version=$(cat .github/version)" >> $GITHUB_OUTPUT
+        run: echo "version=$(awk -F= '/^ANKI_VERSION=/{print $2}' .env)" >> $GITHUB_OUTPUT
 
       - name: Get latest Anki release
         id: latest
@@ -47,11 +47,9 @@ jobs:
           echo "version=${latest}" >> $GITHUB_OUTPUT
           echo "Current: ${{ steps.current.outputs.version }} | Latest: ${latest}"
 
-      - name: Update version files
+      - name: Update version file
         if: steps.latest.outputs.valid == 'true' && steps.current.outputs.version != steps.latest.outputs.version
-        run: |
-          echo "${{ steps.latest.outputs.version }}" > .github/version
-          sed -i "s/^ANKI_VERSION=.*/ANKI_VERSION=${{ steps.latest.outputs.version }}/" .env
+        run: sed -i "s/^ANKI_VERSION=.*/ANKI_VERSION=${{ steps.latest.outputs.version }}/" .env
 
       - name: Create Pull Request
         if: steps.latest.outputs.valid == 'true' && steps.current.outputs.version != steps.latest.outputs.version

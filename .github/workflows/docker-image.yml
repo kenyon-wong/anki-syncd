@@ -5,7 +5,6 @@ on:
     branches: ["master"]
     paths:
       - Dockerfile
-      - .github/version
       - .github/workflows/**
       - envs/**
       - .env
@@ -13,7 +12,6 @@ on:
     branches: ["master"]
     paths:
       - Dockerfile
-      - .github/version
       - .github/workflows/**
       - envs/**
       - .env
@@ -49,11 +47,11 @@ jobs:
 
       - name: Get Version
         run: |
-          if [ ! -f .github/version ]; then
-            echo "Error: Version file not found!"
+          if ! grep -q '^ANKI_VERSION=' .env; then
+            echo "Error: ANKI_VERSION not found in .env!"
             exit 1
           fi
-          version=$(cat .github/version)
+          version=$(awk -F= '/^ANKI_VERSION=/{print $2}' .env)
           echo "VERSION=${version}" >> $GITHUB_ENV
           echo "Anki Releases Version: ${version}"
 
@@ -101,7 +99,7 @@ jobs:
 
       - name: Get Version
         run: |
-          version=$(cat .github/version)
+          version=$(awk -F= '/^ANKI_VERSION=/{print $2}' .env)
           echo "VERSION=${version}" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
