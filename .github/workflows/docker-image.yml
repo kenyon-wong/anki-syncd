@@ -55,6 +55,28 @@ jobs:
           echo "VERSION=${version}" >> $GITHUB_ENV
           echo "Anki Releases Version: ${version}"
 
+      # PR / Dependabot 读不到 GITEA_* 时，旧逻辑会拼出非法 tag //anki_syncd:v…-arch。
+      # PR 一律用本地 tag；只有非 PR（push master / dispatch）才用 Gitea 地址。
+      - name: Resolve image tag
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            tag="anki_syncd:pr-${{ matrix.artifact_key }}"
+            echo "Using local PR tag (no Gitea secrets required): ${tag}"
+          else
+            if [ -z "${REGISTRY}" ] || [ -z "${{ secrets.GITEA_USER }}" ]; then
+              echo "Error: GITEA_SERVICE / GITEA_USER required for push builds"
+              exit 1
+            fi
+            tag="${REGISTRY}/${IMAGE_NAME}:v${VERSION}-${{ matrix.artifact_key }}"
+            echo "Using registry tag: ${tag}"
+          fi
+          if [[ "${tag}" == //* || "${tag}" == *"//"* ]]; then
+            echo "Refusing invalid tag: ${tag}"
+            exit 1
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -66,7 +88,7 @@ jobs:
           username: ${{ secrets.GITEA_USER }}
           password: ${{ secrets.GITEA_TOKEN }}
 
-      # PR 时仅构建验证（push=false，加载到本地 Docker）；非 PR 时推送到架构专用 tag
+      # PR 时仅构建验证（push=false，load 到本地）；非 PR 时推送到架构专用 tag
       - name: Build and push
         uses: docker/build-push-action@v7
         with:
@@ -78,7 +100,8 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.artifact_key }}
           cache-to: type=gha,mode=max,scope=${{ matrix.artifact_key }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ env.VERSION }}-${{ matrix.artifact_key }}
+          load: ${{ github.event_name == 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tag }}
           labels: |
             org.opencontainers.image.title=Anki Sync Server
             org.opencontainers.image.description=Anki Sync Server Docker Image
