@@ -1,0 +1,81 @@
+name: PR smoke build (local tags)
+
+# Proves Dependabot/PR builds can succeed without GITEA_* secrets.
+# Does NOT replace docker-image.yml; keeps publish path unchanged.
+
+on:
+  pull_request:
+    branches: ["master"]
+    paths:
+      - Dockerfile
+      - .github/workflows/docker-image-pr-smoke.yml
+      - .env
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Smoke build (linux/amd64, local tag)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Get Version
+        run: |
+          if ! grep -q '^ANKI_VERSION=' .env; then
+            echo "Error: ANKI_VERSION not found in .env!"
+            exit 1
+          fi
+          version=$(awk -F= '/^ANKI_VERSION=/{print $2}' .env)
+          echo "VERSION=${version}" >> $GITHUB_ENV
+          echo "Anki Releases Version: ${version}"
+
+      - name: Resolve local tag (no Gitea secrets)
+        id: tag
+        env:
+          # Deliberately empty — same failure mode as Dependabot PR #10
+          GITEA_SERVICE: ""
+          GITEA_USER: ""
+        run: |
+          # Bad pattern from docker-image.yml when secrets are empty:
+          #   ${REGISTRY}/${IMAGE_NAME}:v${VERSION}-amd64  →  //anki_syncd:v…-amd64
+          bad="//anki_syncd:v${VERSION}-amd64"
+          good="anki_syncd:pr-smoke-amd64"
+          echo "Demonstrating bad tag would be: ${bad}"
+          if [[ "${bad}" == *"//"* ]]; then
+            echo "Confirmed empty-secret pattern produces invalid // tag"
+          fi
+          echo "tag=${good}" >> "$GITHUB_OUTPUT"
+          echo "Using local tag: ${good}"
+
+      - name: Assert tag has no empty registry prefix
+        run: |
+          tag='${{ steps.tag.outputs.tag }}'
+          if [[ -z "${tag}" || "${tag}" == //* || "${tag}" == *"//"* ]]; then
+            echo "Refusing invalid tag: ${tag}"
+            exit 1
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build (push=false, local tag)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          build-args: ANKI_VERSION=${{ env.VERSION }}
+          provenance: false
+          cache-from: type=gha,scope=pr-smoke-amd64
+          cache-to: type=gha,mode=max,scope=pr-smoke-amd64
+          push: false
+          load: true
+          tags: ${{ steps.tag.outputs.tag }}
