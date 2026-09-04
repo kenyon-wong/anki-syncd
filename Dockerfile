@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- Builder stage ----
-FROM rust:1.97-bookworm AS builder
+FROM rust:1.98-bookworm AS builder
 
 ARG ANKI_VERSION
 
