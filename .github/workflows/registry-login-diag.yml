@@ -1,0 +1,69 @@
+name: Registry login diag
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      REGISTRY: ${{ secrets.GITEA_SERVICE }}
+      GITEA_USER: ${{ secrets.GITEA_USER }}
+      GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+    steps:
+      - name: Sanity (no secret values)
+        run: |
+          set -euo pipefail
+          echo "REGISTRY set? $([ -n "${REGISTRY}" ] && echo yes || echo no) len=${#REGISTRY}"
+          echo "GITEA_USER set? $([ -n "${GITEA_USER}" ] && echo yes || echo no) len=${#GITEA_USER}"
+          echo "GITEA_TOKEN set? $([ -n "${GITEA_TOKEN}" ] && echo yes || echo no) len=${#GITEA_TOKEN}"
+          # common misconfig hints without printing values
+          case "${REGISTRY}" in
+            http://*|https://*) echo "HINT: REGISTRY has URL scheme; docker login usually wants host[:port] only" ;;
+            */*) echo "HINT: REGISTRY contains a slash; often should be host only" ;;
+            *) echo "REGISTRY shape looks host-like" ;;
+          esac
+
+      - name: Probe /v2/ without auth
+        run: |
+          set +e
+          code=$(curl -sS -o /tmp/body_noauth.txt -w '%{http_code}' --max-time 20 "https://${REGISTRY}/v2/")
+          echo "GET https://\$REGISTRY/v2/ -> HTTP ${code}"
+          echo "body_bytes=$(wc -c </tmp/body_noauth.txt)"
+          # classify body without dumping secrets
+          if rg -qi 'cloudflare|cf-ray|attention required|captcha|waf|access denied|forbidden' /tmp/body_noauth.txt; then
+            echo "BODY_CLASS=waf_or_html_challenge"
+          elif rg -qi 'unauthorized|authentication required|errors' /tmp/body_noauth.txt; then
+            echo "BODY_CLASS=registry_api"
+          else
+            echo "BODY_CLASS=other"
+          fi
+          # first 200 chars redacted-ish (no credentials in unauth body usually)
+          head -c 200 /tmp/body_noauth.txt | tr '\n' ' '; echo
+
+      - name: Probe /v2/ with basic auth (token as password)
+        run: |
+          set +e
+          code=$(curl -sS -o /tmp/body_auth.txt -w '%{http_code}' --max-time 20 \
+            -u "${GITEA_USER}:${GITEA_TOKEN}" "https://${REGISTRY}/v2/")
+          echo "GET /v2/ with basic auth -> HTTP ${code}"
+          echo "body_bytes=$(wc -c </tmp/body_auth.txt)"
+          if rg -qi 'cloudflare|cf-ray|attention required|captcha|waf' /tmp/body_auth.txt; then
+            echo "BODY_CLASS=waf_or_html_challenge"
+          elif rg -qi 'unauthorized|invalid|denied|errors' /tmp/body_auth.txt; then
+            echo "BODY_CLASS=registry_api"
+          else
+            echo "BODY_CLASS=other_or_empty_ok"
+          fi
+          head -c 200 /tmp/body_auth.txt | tr '\n' ' '; echo
+
+      - name: docker login (same as publish workflow)
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GITEA_USER }}
+          password: ${{ secrets.GITEA_TOKEN }}
